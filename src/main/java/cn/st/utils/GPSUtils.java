@@ -159,6 +159,13 @@ public class GPSUtils {
         GPS ggGps=wgs84ToGcj02(lng, lat);
         return gcj02ToBd09(ggGps.getLongitude(),ggGps.getLatitude());
     }
+
+    public static void main(String[] args) {
+        GPS gps=GPSUtils.wgs84ToGcj02(120.56927132,27.57587845     );
+        System.out.println(gps.toString());
+        gps=GPSUtils.wgs84ToBd09(120.69065943,27.98429014     );
+        System.out.println(gps.toString());
+    }
 }
 
 class GPS{
