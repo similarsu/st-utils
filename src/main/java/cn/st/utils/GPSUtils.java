@@ -160,6 +160,30 @@ public class GPSUtils {
         return gcj02ToBd09(ggGps.getLongitude(),ggGps.getLatitude());
     }
 
+    /**
+     * 根据点和距离获取正方形
+     * @param lat
+     * @param lng
+     * @param radius 米
+     * @return
+     */
+    public static GPS[] getAround(double lat, double lng, double radius) {
+
+        double degree = (24901 * 1609) / 360.0;
+
+        double dpmLat = 1 / degree;
+        double radiusLat = dpmLat * radius;
+        double minLat = lat - radiusLat;
+        double maxLat = lat + radiusLat;
+
+        double mpdLng = degree * Math.cos(lat * (PI / 180.0));
+        double dpmLng = 1 / mpdLng;
+        double radiusLng = dpmLng * radius;
+        double minLng = lng - radiusLng;
+        double maxLng = lng + radiusLng;
+        return new GPS[]{new GPS(minLng,minLat),new GPS(maxLng,maxLat)};
+    }
+
     public static void main(String[] args) {
         GPS gps=GPSUtils.wgs84ToGcj02(120.56927132,27.57587845     );
         System.out.println(gps.toString());
