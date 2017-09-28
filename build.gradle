@@ -16,6 +16,9 @@ dependencies {
     // This dependency is used internally, and not exposed to consumers on their own compile classpath.
     implementation 'com.google.guava:guava:21.0'
 
+    implementation group: 'commons-codec', name: 'commons-codec', version: '1.10'
+
+
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
 }
