@@ -1,6 +1,8 @@
 package cn.st.utils;
 
 import com.google.gson.Gson;
+import com.spatial4j.core.io.GeohashUtils;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -52,11 +54,21 @@ public class GeoHashRectUtils {
         }
     };
 
-    public static HashMap<Integer,String> geoHash2GpsLen=new HashMap<Integer,String>(){
+    public static HashMap<Integer,GpsLen> geoHash2GpsLen=new HashMap<Integer,GpsLen>(){
         {
-            put(1,"W");
-            put(2,"W,ST");
-            put(3,"W,ST");
+            put(1,new GpsLen(3,2));
+            put(2,new GpsLen(5,5));
+            put(3,new GpsLen(8,7));
+            put(4,new GpsLen(10,10));
+            put(5,new GpsLen(13,12));
+            put(6,new GpsLen(15,15));
+            put(7,new GpsLen(18,17));
+            put(8,new GpsLen(20,20));
+            put(9,new GpsLen(23,22));
+            put(10,new GpsLen(25,25));
+            put(11,new GpsLen(28,27));
+            put(12,new GpsLen(30,30));
+
         }
     };
 
@@ -73,54 +85,68 @@ public class GeoHashRectUtils {
             for(int i=1;i<points.size();i++){
                 pointsTmp.addAll(getBinaryPoint(points.get(i-1),points.get(i),level-1));
             }
-            pointsTmp.remove(level*2-1);
             return pointsTmp;
         }
         return points;
     }
 
+    private static List<Double> adjustBinaryPoint(List<Double> doubles){
+        if(doubles.size()==3){
+            return doubles;
+        }
+        else {
+            List<Double> adjustDoubles=new ArrayList<>();
+            for(int i=0;i<doubles.size();i++){
+                if(i==0||i%3!=0){
+                    adjustDoubles.add(doubles.get(i));
+                }
+            }
+            return adjustDoubles;
+        }
+    }
+
     private static void printBinaryPoint(List<Double> doubles){
+        System.out.println(doubles.size());
         for(double d:doubles){
             System.out.println(d);
         }
     }
 
+    private static List<Double> filterPoint(List<Double> doubles,double min,double max){
+        List<Double> points=new ArrayList<Double>();
+        for(int i=0;i<doubles.size();i++){
+            double d=doubles.get(i);
+            if(d>=min&&d<=max){
+                points.add(d);
+            }
+        }
+        return points;
+    }
 
-    private static List<GeoRect> generateGeoRects(int level,GeoRect parent,Len lngLen,Len latLen, GPS minGps, GPS maxGps){
+
+    private static List<GeoRect> generateGeoRects(int level,Len lngLen,Len latLen, GPS minGps, GPS maxGps){
         List<GeoRect> geoRectList=new ArrayList<>();
-        List<Double> lngDoubles=getBinaryPoint(lngLen.getMin(),lngLen.getMax(),3);
-
-        List<Double> latDoubles=getBinaryPoint(latLen.getMin(),latLen.getMax(),2);
-        int k=0;
-        for(int i=latDoubles.size()-1;i>0;i--){
+        List<Double> lngDoubles=adjustBinaryPoint(getBinaryPoint(lngLen.getMin(),lngLen.getMax(),geoHash2GpsLen.get(level).getLng()));
+        List<Double> latDoubles=adjustBinaryPoint(getBinaryPoint(latLen.getMin(),latLen.getMax(),geoHash2GpsLen.get(level).getLat()));
+        for(int i=1;i<latDoubles.size();i++){
             for(int j=1;j<lngDoubles.size();j++){
                 GeoRect geoRect=new GeoRect();
                 geoRect.setMinGps(new GPS(lngDoubles.get(j-1),latDoubles.get(i-1)));
                 geoRect.setMaxGps(new GPS(lngDoubles.get(j),latDoubles.get(i)));
-                StringBuilder stringBuilder=new StringBuilder();
-                if(parent!=null){
-                    stringBuilder.append(parent.getGeo());
-                }
-                stringBuilder.append(geoHash2Bash32.get(k));
-                geoRect.setGeo(stringBuilder.toString());
-
-                if(isRectIntersect(geoRect.getMinGps(),geoRect.getMaxGps(),minGps,maxGps))
+                if(isRectIntersect(geoRect.getMinGps(),geoRect.getMaxGps(),minGps,maxGps)){
+                    double midLat=(latDoubles.get(i-1)+latDoubles.get(i))/2;
+                    double midLng=(lngDoubles.get(j-1)+lngDoubles.get(j))/2;
+                    geoRect.setGeo(GeohashUtils.encodeLatLon(midLat,midLng,level));
                     geoRectList.add(geoRect);
-                k++;
+                }
+
+
             }
         }
-        if(level>1){
-            List<GeoRect> geoRectListTmp=new ArrayList<>();
-            for(int i=0;i<geoRectList.size();i++){
-                GeoRect geoRect=geoRectList.get(i);
-                GPS minGpsTmp=geoRect.getMinGps();
-                GPS maxGpsTmp=geoRect.getMaxGps();
-                geoRectListTmp.addAll(generateGeoRects(level-1,geoRect,new Len(minGpsTmp.getLongitude(),maxGpsTmp.getLongitude()),new Len(minGpsTmp.getLatitude(),maxGpsTmp.getLatitude()),minGps,maxGps));
-            }
-            return geoRectListTmp;
-        }
+
         return geoRectList;
     }
+
 
     private static void printGeoRect(List<GeoRect> geoRectList){
         System.out.println("rect's num ="+geoRectList.size());
@@ -143,19 +169,18 @@ public class GeoHashRectUtils {
      * @return
      */
     private static boolean isRectIntersect(GPS aMin,GPS aMax,GPS bMin,GPS bMax){
-        if(aMax.getLongitude()<bMin.getLongitude()){
+        if(aMax.getLongitude()<=bMin.getLongitude()){
             return false;
         }
-        if(aMin.getLongitude()>bMax.getLongitude()){
+        if(aMin.getLongitude()>=bMax.getLongitude()){
             return false;
         }
-        if(aMin.getLatitude()>bMax.getLatitude()){
+        if(aMin.getLatitude()>=bMax.getLatitude()){
             return false;
         }
-        if (aMax.getLatitude()<bMax.getLatitude()){
+        if (aMax.getLatitude()<=bMin.getLatitude()){
             return false;
         }
-
         return true;
     }
 
@@ -165,9 +190,9 @@ public class GeoHashRectUtils {
     }
 
     public static void main(String[] args) {
-        //printBinaryPoint(getBinaryPoint(-90,90,2));
-        //getGeoHash(3);
-        List<GeoRect> geoRectList=generateGeoRects(6,null,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
+
+        List<GeoRect> geoRectList=generateGeoRects(6,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
+        //printGeoRect(geoRectList);
         String gson=toJson(geoRectList);
         System.out.println(gson);
 
@@ -242,40 +267,6 @@ public class GeoHashRectUtils {
                     "geo='" + geo + '\'' +
                     ", maxGps=" + maxGps +
                     ", minGps=" + minGps +
-                    '}';
-        }
-    }
-
-    static class Gps{
-        private double lng;
-        private double lat;
-
-        public Gps(double lng, double lat) {
-            this.lng = lng;
-            this.lat = lat;
-        }
-
-        public double getLng() {
-            return lng;
-        }
-
-        public void setLng(double lng) {
-            this.lng = lng;
-        }
-
-        public double getLat() {
-            return lat;
-        }
-
-        public void setLat(double lat) {
-            this.lat = lat;
-        }
-
-        @Override
-        public String toString() {
-            return "Gps{" +
-                    "lng=" + lng +
-                    ", lat=" + lat +
                     '}';
         }
     }
