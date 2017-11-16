@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Created by coolearth on 17-11-13.
@@ -184,20 +185,53 @@ public class GeoHashRectUtils {
         return true;
     }
 
-    public static String toJson(List<GeoRect> geoRects){
+    public static <T> String toJson(List<T> geoRects){
         Gson gson=new Gson();
         return gson.toJson(geoRects);
     }
 
+    public static <T> List<T> getRandomList(List<T> paramList,int count){
+        if(paramList.size()<count){
+            return paramList;
+        }
+        Random random=new Random();
+        List<Integer> tempList=new ArrayList<Integer>();
+        List<T> newList=new ArrayList<T>();
+        int temp=0;
+        for(int i=0;i<count;i++){
+            temp=random.nextInt(paramList.size());//将产生的随机数作为被抽list的索引
+            if(!tempList.contains(temp)){
+                tempList.add(temp);
+                newList.add(paramList.get(temp));
+            }
+            else{
+                i--;
+            }
+        }
+        return newList;
+    }
+
     public static void main(String[] args) {
 
-        List<GeoRect> geoRectList=generateGeoRects(6,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
-        //printGeoRect(geoRectList);
-        String gson=toJson(geoRectList);
+        List<GeoRect> geoRectList=generateGeoRects(5,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
+
+        List<GeoRect> randomRectList=getRandomList(geoRectList,100);
+        List<GeoRectWithScore> rectWithScores=new ArrayList<>();
+        for(int i=0;i<randomRectList.size();i++){
+            GeoRect geoRect=randomRectList.get(i);
+            GeoRectWithScore geoRectWithScore=new GeoRectWithScore();
+            geoRectWithScore.setGeo(geoRect.getGeo());
+            geoRectWithScore.setMaxGps(geoRect.getMaxGps());
+            geoRectWithScore.setMinGps(geoRect.getMinGps());
+            geoRectWithScore.setScore(Math.random());
+            rectWithScores.add(geoRectWithScore);
+        }
+        //printGeoRect(randomRectList);
+        String gson=toJson(rectWithScores);
         System.out.println(gson);
 
         try {
-            FileWriter fileWriter=new FileWriter("6.json");
+            FileWriter fileWriter=new FileWriter("5-s.json");
             fileWriter.write(gson);
             fileWriter.flush();
             fileWriter.close();
@@ -205,6 +239,8 @@ public class GeoHashRectUtils {
             e.printStackTrace();
         }
     }
+
+
 
     static class Len{
         private double min;
@@ -269,6 +305,19 @@ public class GeoHashRectUtils {
                     ", minGps=" + minGps +
                     '}';
         }
+    }
+
+    static class GeoRectWithScore extends GeoRect{
+        public double getScore() {
+            return score;
+        }
+
+        public void setScore(double score) {
+            this.score = score;
+        }
+
+        private double score;
+
     }
 
     static class GpsLen{
