@@ -6,10 +6,8 @@ import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Random;
+import java.text.MessageFormat;
+import java.util.*;
 
 /**
  * Created by coolearth on 17-11-13.
@@ -148,6 +146,33 @@ public class GeoHashRectUtils {
         return geoRectList;
     }
 
+    private static List<GeoRect> generateGeoRectsGD(int level,Len lngLen,Len latLen, GPS minGps, GPS maxGps){
+        List<GeoRect> geoRectList=new ArrayList<>();
+        List<Double> lngDoubles=adjustBinaryPoint(getBinaryPoint(lngLen.getMin(),lngLen.getMax(),geoHash2GpsLen.get(level).getLng()));
+        List<Double> latDoubles=adjustBinaryPoint(getBinaryPoint(latLen.getMin(),latLen.getMax(),geoHash2GpsLen.get(level).getLat()));
+        for(int i=1;i<latDoubles.size();i++){
+            for(int j=1;j<lngDoubles.size();j++){
+                GeoRect geoRect=new GeoRect();
+                geoRect.setMinGps(new GPS(lngDoubles.get(j-1),latDoubles.get(i-1)));
+                geoRect.setMaxGps(new GPS(lngDoubles.get(j),latDoubles.get(i)));
+                if(isRectIntersect(geoRect.getMinGps(),geoRect.getMaxGps(),minGps,maxGps)){
+                    double midLat=(latDoubles.get(i-1)+latDoubles.get(i))/2;
+                    double midLng=(lngDoubles.get(j-1)+lngDoubles.get(j))/2;
+                    GPS midGpsGd=GPSUtils.wgs84ToGcj02(midLng,midLat);
+                    geoRect.setGeo(GeohashUtils.encodeLatLon(midGpsGd.getLatitude(),midGpsGd.getLongitude(),level));
+                    geoRect.setMaxGps(GPSUtils.wgs84ToGcj02(lngDoubles.get(j),latDoubles.get(i)));
+                    geoRect.setMinGps(GPSUtils.wgs84ToGcj02(lngDoubles.get(j-1),latDoubles.get(i-1)));
+                    geoRectList.add(geoRect);
+                }
+
+
+            }
+        }
+
+        return geoRectList;
+    }
+
+
 
     private static void printGeoRect(List<GeoRect> geoRectList){
         System.out.println("rect's num ="+geoRectList.size());
@@ -211,11 +236,24 @@ public class GeoHashRectUtils {
         return newList;
     }
 
+    public static String toSql(int level,List<GeoRect> geoRectList){
+        StringBuffer stringBuffer=new StringBuffer();
+        for (GeoRect geoRect:geoRectList
+             ) {
+
+            stringBuffer.append(MessageFormat.format("insert into tbl_geohash values (''{0}'',''{1}'',{2},{3},{4},{5},{6},1,now());", UUID.randomUUID().toString().replaceAll("-",""),geoRect.getGeo(),
+                    geoRect.getMinGps().getLongitude(),geoRect.getMinGps().getLatitude(),
+                    geoRect.getMaxGps().getLongitude(),geoRect.getMaxGps().getLatitude(),level));
+            stringBuffer.append("\r\n");
+        }
+        return stringBuffer.toString();
+    }
+
     public static void main(String[] args) {
+        int level=6;
+        List<GeoRect> geoRectList=generateGeoRectsGD(level,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
 
-        List<GeoRect> geoRectList=generateGeoRects(5,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
-
-        List<GeoRect> randomRectList=getRandomList(geoRectList,100);
+        /*List<GeoRect> randomRectList=getRandomList(geoRectList,10);
         List<GeoRectWithScore> rectWithScores=new ArrayList<>();
         for(int i=0;i<randomRectList.size();i++){
             GeoRect geoRect=randomRectList.get(i);
@@ -225,13 +263,13 @@ public class GeoHashRectUtils {
             geoRectWithScore.setMinGps(geoRect.getMinGps());
             geoRectWithScore.setScore(Math.random());
             rectWithScores.add(geoRectWithScore);
-        }
+        }*/
         //printGeoRect(randomRectList);
-        String gson=toJson(rectWithScores);
+        String gson=toSql(level,geoRectList);
         System.out.println(gson);
 
         try {
-            FileWriter fileWriter=new FileWriter("5-s.json");
+            FileWriter fileWriter=new FileWriter("geohash"+level+".sql");
             fileWriter.write(gson);
             fileWriter.flush();
             fileWriter.close();
