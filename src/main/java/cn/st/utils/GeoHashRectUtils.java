@@ -1,7 +1,15 @@
 package cn.st.utils;
 
+import com.google.common.base.*;
+import com.google.common.base.Objects;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Table;
+import com.google.common.math.IntMath;
 import com.google.gson.Gson;
 import com.spatial4j.core.io.GeohashUtils;
+import jdk.nashorn.internal.ir.annotations.Immutable;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.FileWriter;
@@ -250,34 +258,116 @@ public class GeoHashRectUtils {
     }
 
     public static void main(String[] args) {
-        int level=6;
-        List<GeoRect> geoRectList=generateGeoRectsGD(level,new Len(-180,180),new Len(-90,90),new GPS(119,27),new GPS(122,29));
-
-        /*List<GeoRect> randomRectList=getRandomList(geoRectList,10);
-        List<GeoRectWithScore> rectWithScores=new ArrayList<>();
-        for(int i=0;i<randomRectList.size();i++){
-            GeoRect geoRect=randomRectList.get(i);
-            GeoRectWithScore geoRectWithScore=new GeoRectWithScore();
-            geoRectWithScore.setGeo(geoRect.getGeo());
-            geoRectWithScore.setMaxGps(geoRect.getMaxGps());
-            geoRectWithScore.setMinGps(geoRect.getMinGps());
-            geoRectWithScore.setScore(Math.random());
-            rectWithScores.add(geoRectWithScore);
-        }*/
-        //printGeoRect(randomRectList);
-        String gson=toSql(level,geoRectList);
-        System.out.println(gson);
-
-        try {
-            FileWriter fileWriter=new FileWriter("geohash"+level+".sql");
-            fileWriter.write(gson);
-            fileWriter.flush();
-            fileWriter.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+       System.out.println(getDistinctBetweenPoints("wt1334","wt1235"));
     }
 
+    private static BiMap<Point,String> GE0HASH_POINT_MAP= HashBiMap.create();
+
+    static {
+        GE0HASH_POINT_MAP.put(new Point(1,1),"0");
+        GE0HASH_POINT_MAP.put(new Point(2,1),"1");
+        GE0HASH_POINT_MAP.put(new Point(3,1),"4");
+        GE0HASH_POINT_MAP.put(new Point(4,1),"5");
+        GE0HASH_POINT_MAP.put(new Point(5,1),"h");
+        GE0HASH_POINT_MAP.put(new Point(6,1),"j");
+        GE0HASH_POINT_MAP.put(new Point(7,1),"n");
+        GE0HASH_POINT_MAP.put(new Point(8,1),"p");
+        GE0HASH_POINT_MAP.put(new Point(1,1),"2");
+        GE0HASH_POINT_MAP.put(new Point(2,2),"3");
+        GE0HASH_POINT_MAP.put(new Point(3,2),"6");
+        GE0HASH_POINT_MAP.put(new Point(4,2),"7");
+        GE0HASH_POINT_MAP.put(new Point(5,2),"k");
+        GE0HASH_POINT_MAP.put(new Point(6,2),"m");
+        GE0HASH_POINT_MAP.put(new Point(7,2),"q");
+        GE0HASH_POINT_MAP.put(new Point(8,2),"r");
+        GE0HASH_POINT_MAP.put(new Point(1,3),"8");
+        GE0HASH_POINT_MAP.put(new Point(2,3),"9");
+        GE0HASH_POINT_MAP.put(new Point(3,3),"d");
+        GE0HASH_POINT_MAP.put(new Point(4,3),"e");
+        GE0HASH_POINT_MAP.put(new Point(5,3),"s");
+        GE0HASH_POINT_MAP.put(new Point(6,3),"t");
+        GE0HASH_POINT_MAP.put(new Point(7,3),"w");
+        GE0HASH_POINT_MAP.put(new Point(8,3),"x");
+        GE0HASH_POINT_MAP.put(new Point(1,4),"b");
+        GE0HASH_POINT_MAP.put(new Point(2,4),"c");
+        GE0HASH_POINT_MAP.put(new Point(3,4),"f");
+        GE0HASH_POINT_MAP.put(new Point(4,4),"g");
+        GE0HASH_POINT_MAP.put(new Point(5,4),"u");
+        GE0HASH_POINT_MAP.put(new Point(6,4),"v");
+        GE0HASH_POINT_MAP.put(new Point(7,4),"y");
+        GE0HASH_POINT_MAP.put(new Point(8,4),"z");
+    }
+
+
+    /**
+     * get distinct of point between two geohash
+     * @param geohash1
+     * @param geohash2
+     * @return
+     */
+    public static Point getDistinctBetweenPoints(String geohash1,String geohash2){
+        Point point1=getPointOfGeohash(geohash1);
+        Point point2=getPointOfGeohash(geohash2);
+        return new Point(Math.abs(point1.x-point2.x),Math.abs(point1.y-point2.y));
+    }
+
+    /**
+     * get point of geohash
+     * @param geohash
+     * @return
+     */
+    public static Point getPointOfGeohash(String geohash){
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(geohash),"geohash must be not empty");
+        int x=0;
+        int y=0;
+        int length=geohash.length();
+        BiMap<String, Point> inverse=GE0HASH_POINT_MAP.inverse();
+        for(int i=0;i<length;i++){
+            String str= String.valueOf(geohash.charAt(i));
+            Point point=inverse.get(str);
+            if(i==0){
+                x=point.x;
+                y=point.y;
+            }else{
+                x=(x-1)*8+point.x;
+                y=(y-1)*4+point.y;
+            }
+
+
+        }
+        return new Point(x,y);
+    }
+
+    static class Point{
+        private int x;
+        private int y;
+
+        public int getX() {
+            return x;
+        }
+
+        public void setX(int x) {
+            this.x = x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public void setY(int y) {
+            this.y = y;
+        }
+
+        public Point(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this).add("x",x).add("y",y).toString();
+        }
+    }
 
 
     static class Len{
